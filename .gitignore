@@ -1,0 +1,6 @@
+google-chrome
+.env
+package-lock.json
+user.json
+.bin
+node_modules
