@@ -50,7 +50,8 @@ const login = async (page) => {
     channel: "chrome",
     headless: false,
     permissions: ['local-network-access'],
-    storageState: authFile
+    storageState: authFile,
+    viewport: { width: 1600, height: 1200 },
   });
   await context.setDefaultTimeout(60000);
   const page = await context.newPage();
@@ -67,6 +68,7 @@ const login = async (page) => {
   }
 
   console.log('Login successful, navigating to copy invoice page...');
+  await page.waitForTimeout(1000);
 
   // 복사발급 페이지 이동
   await page.getByRole('link', { name: '계산서·영수증·카드' }).click();
@@ -76,7 +78,7 @@ const login = async (page) => {
   await page.getByRole('button', { name: '조회' }).click();
 
   // 결과 테이블 로딩 대기
-  await page.waitForLoadState('networkidle', { timeout: 5000 });
+  //await page.waitForLoadState('networkidle', { timeout: 5000 });
   await page.waitForTimeout(2000);
 
   // 목록 테이블에서 데이터 추출
@@ -120,6 +122,9 @@ const login = async (page) => {
       console.log('');
     });
   }
+
+  //wait for 5 seconds before closing browser
+  await page.waitForTimeout(50000);
 
   await context.storageState({ path: authFile });
   await context.close();
