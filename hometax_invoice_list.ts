@@ -33,7 +33,6 @@ const login = async (page) => {
   await page.locator('iframe[name="dscert"]').contentFrame().getByRole('link', { name: '브라우저' }).click();
 
   await page.locator('iframe[name="dscert"]').contentFrame().locator('a').filter({ hasText: certName }).click();
-  //await page.locator('iframe[name="dscert"]').contentFrame().getByRole('textbox', { name: '비밀번호 입력' }).click(); // do not click, just fill to prevent popup screen keyboard
   await page.locator('iframe[name="dscert"]').contentFrame().getByRole('textbox', { name: '비밀번호 입력' }).fill(certPassword);
   await page.locator('iframe[name="dscert"]').contentFrame().getByRole('textbox', { name: '비밀번호 입력' }).press('Enter');
 
@@ -41,7 +40,86 @@ const login = async (page) => {
   await logoutLink.waitFor({ state: 'visible' });
 }
 
+const extractTableRows = async (page): Promise<Record<string, string>[]> => {
+  return page.evaluate(() => {
+    const results: Record<string, string>[] = [];
+    const tables = document.querySelectorAll('table');
+    for (const table of tables) {
+      const headers: string[] = [];
+      const headerCells = table.querySelectorAll('thead th, thead td');
+      headerCells.forEach(cell => headers.push(cell.textContent?.trim() ?? ''));
+
+      if (headers.length === 0) continue;
+
+      const bodyRows = table.querySelectorAll('tbody tr');
+      bodyRows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length === 0) return;
+        const rowData: Record<string, string> = {};
+        cells.forEach((cell, i) => {
+          const key = headers[i] ?? `col${i}`;
+          rowData[key] = cell.textContent?.trim() ?? '';
+        });
+        results.push(rowData);
+      });
+    }
+    return results;
+  });
+};
+
+const navigateToInvoicePage = async (page) => {
+  console.log('Login successful, navigating to invoice page...');
+  const invoiceLink = await page.getByRole('link', { name: '계산서·영수증·카드' });
+  await invoiceLink.waitFor({ state: 'visible' });
+  await invoiceLink.click();
+  await page.getByRole('link', { name: '전자(세금)계산서 조회' }).click();
+  await page.getByRole('link', { name: '조회', exact: true }).click();
+  await page.getByRole('link', { name: '발급 목록조회' }).click();
+};
+
+const getSalesInvoices = async (page): Promise<Record<string, string>[]> => {
+  await page.getByText('매출', { exact: true }).click();
+  await page.getByRole('button', { name: '3개월' }).click();
+  await page.getByRole('button', { name: '조회', exact: true }).click();
+  await page.waitForTimeout(2000);
+  return extractTableRows(page);
+};
+
+const getPurchaseInvoices = async (page): Promise<Record<string, string>[]> => {
+  await page.getByText('매입', { exact: true }).click();
+  await page.getByRole('button', { name: '3개월' }).click();
+  await page.getByRole('button', { name: '조회', exact: true }).click();
+  await page.waitForTimeout(2000); 
+  return extractTableRows(page);
+};
+
+const printInvoices = (rows: Record<string, string>[], label: string) => {
+  if (rows.length === 0) {
+    console.log(`조회된 ${label} 세금계산서 목록이 없습니다.`);
+    return;
+  }
+  console.log(`\n## ${label} 세금계산서 목록 (총 ${rows.length}건)\n`);
+  rows.forEach((row, idx) => {
+    console.log(`[${idx + 1}]`);
+    Object.entries(row).forEach(([key, value]) => {
+      if (key && value) console.log(`  ${key}: ${value}`);
+    });
+    console.log('');
+  });
+};
+
 (async () => {
+  // CLI 인자 파싱: sales | purchase | both (기본값: both)
+  const args = process.argv.slice(2);
+  const typeArg = args[0]?.toLowerCase();
+  const showSales = !typeArg || typeArg === '매출' || typeArg === 'sales' || typeArg === 'both';
+  const showPurchase = !typeArg || typeArg === '매입' || typeArg === 'purchase' || typeArg === 'both';
+
+  if (!showSales && !showPurchase) {
+    console.error('사용법: npx ts-node hometax_invoice_list.ts [매출|매입|both]');
+    process.exit(1);
+  }
+
   const context = await chromium.launchPersistentContext(userDataDir, {
     channel: "chrome",
     headless: true,
@@ -63,115 +141,27 @@ const login = async (page) => {
     await login(page);
   }
 
-  // 전자세금계산서 목록조회
-  console.log('Login successful, navigating to invoice page...');
-  const invoiceLink = await page.getByRole('link', { name: '계산서·영수증·카드' });
-  await invoiceLink.waitFor({ state: 'visible' });
-  await invoiceLink.click();
-  await page.getByRole('link', { name: '전자(세금)계산서 조회' }).click();
-  await page.getByRole('link', { name: '조회', exact: true }).click();
-  await page.getByRole('link', { name: '발급 목록조회' }).click();
-  await page.getByText('매출', { exact: true }).click();
-  await page.getByRole('button', { name: '3개월' }).click();
-  await page.getByRole('button', { name: '조회', exact: true }).click();
+  await navigateToInvoicePage(page);
 
-  // 결과 테이블 로딩 대기
-  await page.waitForTimeout(1000);
-  await page.waitForLoadState('load', { timeout: 2000 });
+  let salesRows: Record<string, string>[] = [];
+  let purchaseRows: Record<string, string>[] = [];
 
-  // 목록 테이블에서 매출 데이터 추출
-  const outcomeRows = await page.evaluate(() => {
-    const results: Record<string, string>[] = [];
-
-    // 일반적인 홈택스 목록 테이블 탐색
-    const tables = document.querySelectorAll('table');
-    for (const table of tables) {
-      const headers: string[] = [];
-      const headerCells = table.querySelectorAll('thead th, thead td');
-      headerCells.forEach(cell => headers.push(cell.textContent?.trim() ?? ''));
-
-      if (headers.length === 0) continue;
-
-      const bodyRows = table.querySelectorAll('tbody tr');
-      bodyRows.forEach(row => {
-        const cells = row.querySelectorAll('td');
-        if (cells.length === 0) return;
-        const rowData: Record<string, string> = {};
-        cells.forEach((cell, i) => {
-          const key = headers[i] ?? `col${i}`;
-          rowData[key] = cell.textContent?.trim() ?? '';
-        });
-        results.push(rowData);
-      });
-    }
-
-    return results;
-  });
-
-
-  // 매입
-  await page.getByText('매입', { exact: true }).click();
-  await page.getByRole('button', { name: '조회', exact: true }).click();
-
-  // 결과 테이블 로딩 대기
-  await page.waitForLoadState('load', { timeout: 2000 });
-
-  // 목록 테이블에서 매입 데이터 추출
-  const incomeRows = await page.evaluate(() => {
-    const results: Record<string, string>[] = [];
-
-    // 일반적인 홈택스 목록 테이블 탐색
-    const tables = document.querySelectorAll('table');
-    for (const table of tables) {
-      const headers: string[] = [];
-      const headerCells = table.querySelectorAll('thead th, thead td');
-      headerCells.forEach(cell => headers.push(cell.textContent?.trim() ?? ''));
-
-      if (headers.length === 0) continue;
-
-      const bodyRows = table.querySelectorAll('tbody tr');
-      bodyRows.forEach(row => {
-        const cells = row.querySelectorAll('td');
-        if (cells.length === 0) return;
-        const rowData: Record<string, string> = {};
-        cells.forEach((cell, i) => {
-          const key = headers[i] ?? `col${i}`;
-          rowData[key] = cell.textContent?.trim() ?? '';
-        });
-        results.push(rowData);
-      });
-    }
-
-    return results;
-  });
-
-  if (outcomeRows.length === 0) {
-    console.log('조회된 발급 세금계산서 목록이 없습니다.');
-    return;
+  if (showSales) {
+    salesRows = await getSalesInvoices(page);
   }
 
-  if (incomeRows.length === 0) {
-    console.log('조회된 매입 세금계산서 목록이 없습니다.');
-    return;
+  if (showPurchase) {
+    purchaseRows = await getPurchaseInvoices(page);
   }
 
-  console.log(`\n## 매출 세금계산서 목록 (총 ${outcomeRows.length}건)\n`);
-  outcomeRows.forEach((row, idx) => {
-    console.log(`[${idx + 1}]`);
-    Object.entries(row).forEach(([key, value]) => {
-      if (key && value) console.log(`  ${key}: ${value}`);
-    });
-    console.log('');
-  });
+  if (showSales) {
+    printInvoices(salesRows, '매출');
+  }
 
-  console.log(`\n## 매입 세금계산서 목록 (총 ${incomeRows.length}건)\n`);
-  incomeRows.forEach((row, idx) => {
-    console.log(`[${idx + 1}]`);
-    Object.entries(row).forEach(([key, value]) => {
-      if (key && value) console.log(`  ${key}: ${value}`);
-    });
-    console.log('');
-  });
+  if (showPurchase) {
+    if (showSales) console.log('----------------------------------------');
+    printInvoices(purchaseRows, '매입');
+  }
 
   await context.storageState({ path: authFile });
   await context.close();

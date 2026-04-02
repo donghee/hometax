@@ -107,6 +107,7 @@ program
   .argument('[items...]', '품목 목록 (형식: 품목명:수량:단가)')
   .option('-f, --file <path>', '품목 JSON 파일 경로 ([{"name":"...", "qty":1, "price":5000}])')
   .option('-d, --date <day>', '작성일 (일, 1~31)', todayDay)
+  .option('-y, --yes', '확인 없이 바로 발급')
   .addHelpText('after', `
 예시:
   $ npx tsx hometax_invoice_create.ts 1498100925 "F450 드론:1:5000" "배터리:2:2000"
@@ -169,18 +170,25 @@ const taxTotal = Math.floor(supplyTotal * 0.1);
 console.log(`\n  공급가액: ${supplyTotal.toLocaleString()}원  세액: ${taxTotal.toLocaleString()}원  합계: ${(supplyTotal + taxTotal).toLocaleString()}원`);
 console.log('\n---\n');
 
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-rl.question('위 내용으로 발급하시겠습니까? (y/N) ', async (answer) => {
-  rl.close();
-  if (answer.trim().toLowerCase() !== 'y') {
-    console.log('취소되었습니다.');
-    process.exit(0);
-  }
+const autoYes = opts.yes === true;
 
+if (autoYes) {
+  console.log('위 내용으로 발급하시겠습니까? (y/N) y');
   await main();
-});
+} else {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  rl.question('위 내용으로 발급하시겠습니까? (y/N) ', async (answer) => {
+    rl.close();
+    if (answer.trim().toLowerCase() !== 'y') {
+      console.log('취소되었습니다.');
+      process.exit(0);
+    }
 
-const main = async () => {
+    await main();
+  });
+}
+
+async function main() {
   const context = await chromium.launchPersistentContext(userDataDir, {
     channel: "chrome",
     headless: false,
@@ -208,7 +216,7 @@ const main = async () => {
   await page.getByRole('link', { name: '전자(세금)계산서 건별발급' }).click();
 
   await page.waitForLoadState('load');
-  await page.waitForTimeout(1000); // Wait for 1 second to ensure the page is fully loaded
+  await page.waitForTimeout(2000); // Wait for 1 second to ensure the page is fully loaded
 
   console.log(`Filling out recipient form for ${recipient.name} (${bizNo})...`);
   await page.getByRole('textbox', { name: '등록번호' }).fill(bizNo);
@@ -261,4 +269,4 @@ const main = async () => {
 
   // Cleanup
   //await browser.close();
-};
+}

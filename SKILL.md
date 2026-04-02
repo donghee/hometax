@@ -18,9 +18,21 @@ cd /home/donghee/src/github.com/donghee/hometax
 
 ### Step 2: 도구 사용 예시
 
+#### 세금계산서 조회
+
 ```bash
-# 발행된 매출/매입 세금계산서 조회
-npx tsx hometax_invoice_list.ts
+# 발행된 매출 세금계산서, 매입 세금계산서 둘다 조회
+npx tsx hometax_invoice_list.ts both
+```
+
+```bash
+# 발행된 매출 세금계산서 조회
+npx tsx hometax_invoice_list.ts sales
+```
+
+```bash
+# 발행된 매입 세금계산서 조회
+npx tsx hometax_invoice_list.ts purchase
 ```
 
 ```bash
@@ -28,11 +40,14 @@ npx tsx hometax_invoice_list.ts
 npx tsx hometax_copy_invoice_list.ts
 ```
 
+#### 세금계산서 발행
 
 ```bash
 # 세금계산서 발행 도움말: 예시, 등록된 수신자 목록 제공
 npx tsx hometax_invoice_create.ts
 ```
+
+주의 사항: 세금 계산서 발행 전에 발행할 세금계산서 정리해서 보여주고, 발행 진행할지 확인 필요.
 
 ```bash
 # 세금계산서 발행 예시: 주식회사 드론맵 사업자에 2건의 품목에 대해 세금계산서 작성
