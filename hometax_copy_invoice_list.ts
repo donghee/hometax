@@ -25,10 +25,6 @@ const login = async (page) => {
   if (await page.getByRole('link', { name: '로그아웃', exact: true }).isVisible()) {
     console.log('Already logged in, skipping login process');
     return;
-    // logout(page);
-    // console.log('Logged out successfully');
-    // await page.goto('https://hometax.go.kr');
-    // await page.waitForLoadState('networkidle');
   }
 
   await page.getByRole('link', { name: '로그인', exact: true }).click();
@@ -41,14 +37,14 @@ const login = async (page) => {
   await page.locator('iframe[name="dscert"]').contentFrame().getByRole('textbox', { name: '비밀번호 입력' }).fill(certPassword);
   await page.locator('iframe[name="dscert"]').contentFrame().getByRole('textbox', { name: '비밀번호 입력' }).press('Enter');
 
-  // timeout 2s
-  await page.waitForTimeout(2000);
+  const logoutLink = await page.getByRole('link', { name: '로그아웃', exact: true })
+  await logoutLink.waitFor({ state: 'visible' });
 }
 
 (async () => {
   const context = await chromium.launchPersistentContext(userDataDir, {
     channel: "chrome",
-    headless: false,
+    headless: true,
     permissions: ['local-network-access'],
     storageState: authFile,
     viewport: { width: 1600, height: 1200 },
@@ -67,19 +63,19 @@ const login = async (page) => {
     await login(page);
   }
 
-  console.log('Login successful, navigating to copy invoice page...');
-  await page.waitForTimeout(1000);
-
   // 복사발급 페이지 이동
-  await page.getByRole('link', { name: '계산서·영수증·카드' }).click();
+  console.log('Login successful, navigating to copy invoice page...');
+  const invoiceLink = await page.getByRole('link', { name: '계산서·영수증·카드' });
+  await invoiceLink.waitFor({ state: 'visible' });
+  await invoiceLink.click();
   await page.getByRole('link', { name: '반복/복사 발급' }).click();
   await page.getByRole('link', { name: '전자(세금)계산서 복사발급' }).click();
   await page.getByRole('button', { name: '2개월' }).click();
   await page.getByRole('button', { name: '조회' }).click();
 
   // 결과 테이블 로딩 대기
-  //await page.waitForLoadState('networkidle', { timeout: 5000 });
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(1000);
+  await page.waitForLoadState('load', { timeout: 2000 });
 
   // 목록 테이블에서 데이터 추출
   const rows = await page.evaluate(() => {
@@ -122,9 +118,6 @@ const login = async (page) => {
       console.log('');
     });
   }
-
-  //wait for 5 seconds before closing browser
-  await page.waitForTimeout(50000);
 
   await context.storageState({ path: authFile });
   await context.close();

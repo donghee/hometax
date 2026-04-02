@@ -89,14 +89,12 @@ const login = async (page) => {
 
   await page.locator('iframe[name="dscert"]').contentFrame().getByRole('link', { name: '브라우저' }).click();
 
-  // eunpa
   await page.locator('iframe[name="dscert"]').contentFrame().locator('a').filter({ hasText: certName }).click();
-  //await page.locator('iframe[name="dscert"]').contentFrame().getByRole('textbox', { name: '비밀번호 입력' }).click(); // do not click, just fill to prevent popup screen keyboard
   await page.locator('iframe[name="dscert"]').contentFrame().getByRole('textbox', { name: '비밀번호 입력' }).fill(certPassword);
   await page.locator('iframe[name="dscert"]').contentFrame().getByRole('textbox', { name: '비밀번호 입력' }).press('Enter');
 
-  // timeout 2s
-  await page.waitForTimeout(2000);
+  const logoutLink = await page.getByRole('link', { name: '로그아웃', exact: true })
+  await logoutLink.waitFor({ state: 'visible' });
 }
 
 const todayDay = new Date().getDate().toString();
@@ -209,7 +207,8 @@ const main = async () => {
   await page.getByRole('link', { name: '계산서·영수증·카드' }).click();
   await page.getByRole('link', { name: '전자(세금)계산서 건별발급' }).click();
 
-  await page.waitForTimeout(2000); // wait for 2 seconds to ensure the page is fully loaded
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(1000); // Wait for 1 second to ensure the page is fully loaded
 
   console.log(`Filling out recipient form for ${recipient.name} (${bizNo})...`);
   await page.getByRole('textbox', { name: '등록번호' }).fill(bizNo);
