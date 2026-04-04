@@ -8,35 +8,9 @@ import { launchContext, loginWithRetry, authFile } from './hometax_common.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const recipients: Record<string, Recipient> = {
-  '8788102093': {
-    name: '주식회사 크래이징랩',
-    ceo: '김상표',
-    address: '경기도 화성시 동탄기흥로 557, 406호(영천동, 금강펜테리움IT타워)',
-    businessType: '정보통신업',
-    businessItem: 'AI개발',
-    email1: 'yurim@wom.ai',
-    email2: ''
-  },
-  '1078641704': {
-    name: '(주) 인코칭',
-    ceo: '김재은',
-    address: '서울특별시 서초구 방배로20길 17(방배동, 인코칭빌딩)',
-    businessType: '서비스업',
-    businessItem: '응용소프트웨어개발',
-    email1: 'support@incoaching.com',
-    email2: 'kes@incoaching.com'
-  },
-  '1498100925': {
-    name: '주식회사 드론맵',
-    ceo: '박동희',
-    address: '서울시 구로구 부일로 15가길 3 나동 401호',
-    businessType: '서비스',
-    businessItem: '소프트웨어 및 하드웨어',
-    email1: 'dongheepark@gmail.com',
-    email2: 'dongheepark1@gmail.com'
-  }
-};
+const recipients: Record<string, Recipient> = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'recipients.json'), 'utf-8')
+);
 
 interface Recipient {
   name: string;
