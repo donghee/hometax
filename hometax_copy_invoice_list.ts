@@ -1,4 +1,4 @@
-import { launchContext, loginWithRetry, extractTableRows, authFile } from './hometax_common.ts';
+import { launchContext, loginWithRetry, extractTableRows, printInvoices, authFile } from './hometax_common.ts';
 
 (async () => {
   const context = await launchContext({ headless: true, timeout: 60000 });
@@ -21,19 +21,7 @@ import { launchContext, loginWithRetry, extractTableRows, authFile } from './hom
   await page.waitForLoadState('load', { timeout: 2000 });
 
   const rows = await extractTableRows(page);
-
-  if (rows.length === 0) {
-    console.log('조회된 복사발급 세금계산서 목록이 없습니다.');
-  } else {
-    console.log(`\n## 복사발급 세금계산서 목록 (총 ${rows.length}건)\n`);
-    rows.forEach((row, idx) => {
-      console.log(`[${idx + 1}]`);
-      Object.entries(row).forEach(([key, value]) => {
-        if (key && value) console.log(`  ${key}: ${value}`);
-      });
-      console.log('');
-    });
-  }
+  printInvoices(rows, '복사발급');
 
   await context.storageState({ path: authFile });
   await context.close();
