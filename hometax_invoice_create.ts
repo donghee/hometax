@@ -1,18 +1,12 @@
-import { chromium } from 'playwright';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { config } from 'dotenv';
-import { program } from 'commander';
 import * as fs from 'fs';
 import * as readline from 'readline';
+import { program } from 'commander';
+import type { Page } from 'playwright';
+import { launchContext, loginWithRetry, authFile } from './hometax_common.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-config({ path: path.join(__dirname, '.env') });
-const authFile = path.join(__dirname, 'user.json');
-const userDataDir = path.join(__dirname, 'google-chrome');
-
-const certName = process.env.CERT_NAME!;
-const certPassword = process.env.CERT_PASSWORD!;
 
 const recipients: Record<string, Recipient> = {
   '8788102093': {
@@ -58,43 +52,6 @@ interface Item {
   name: string;
   qty: number;
   price: number;
-}
-
-const logout = async (page) => {
-  await page.getByRole('link', { name: '로그아웃', exact: true }).click();
-  await page.getByRole('button', { name: '확인',exact: true }).click();
-  console.log('Logged out successfully');
-}
-
-const login = async (page) => {
-  await page.goto('https://hometax.go.kr');
-  await page.waitForLoadState('networkidle');
-
-  // if logined, skip login process
-  if (await page.getByRole('link', { name: '로그아웃', exact: true }).isVisible()) {
-    console.log('Already logged in, skipping login process');
-    return;
-  //   logout(page);
-  //   console.log('Logged out successfully');
-  //   await page.goto('https://hometax.go.kr');
-  //   await page.waitForLoadState('networkidle');
-  }
-
-  await page.getByRole('link', { name: '로그인', exact: true }).click();
-  await page.getByRole('button', { name: '공동·금융인증서' }).click();
-
-  //await page.locator('iframe[name="dscert"]').contentFrame().getByRole('link', { name: '하드디스크 이동식' }).click();
-  //await page.locator('iframe[name="dscert"]').contentFrame().getByRole('link', { name: '하드디스크 이동식' }).click();
-  //await page.locator('iframe[name="dscert"]').contentFrame().getByRole('link', { name: '로컬 디스크 (C)' }).click();
-
-  await page.locator('iframe[name="dscert"]').contentFrame().getByRole('link', { name: '브라우저' }).click();
-
-  await page.locator('iframe[name="dscert"]').contentFrame().locator('a').filter({ hasText: certName }).click();
-  await page.locator('iframe[name="dscert"]').contentFrame().getByRole('textbox', { name: '비밀번호 입력' }).fill(certPassword);
-  await page.locator('iframe[name="dscert"]').contentFrame().getByRole('textbox', { name: '비밀번호 입력' }).press('Enter');
-
-  const logoutLink = await page.getByRole('link', { name: '로그아웃', exact: true })
-  await logoutLink.waitFor({ state: 'visible' });
 }
 
 const todayDay = new Date().getDate().toString();
@@ -183,53 +140,32 @@ if (autoYes) {
       console.log('취소되었습니다.');
       process.exit(0);
     }
-
     await main();
   });
 }
 
 async function main() {
-  const context = await chromium.launchPersistentContext(userDataDir, {
-    channel: "chrome",
-    headless: false,
-    permissions: ['local-network-access'],
-    storageState: authFile,
-    viewport: { width: 1600, height: 1200 },
-    }
-  );
-  await context.setDefaultTimeout(60000 * 60); // Set default timeout to 60 minutes
+  const context = await launchContext({ headless: false, timeout: 60000 * 60 });
   const page = await context.newPage();
   console.log('Browser launched, trying to log in...');
-  await login(page);
-
-  // still iframe is popuped and not loggined, close and retry
-  while (await page.locator('iframe[name="dscert"]').isVisible() && ! await page.getByRole('link', { name: '로그아웃',exact: true }).isVisible()) {
-    console.log('Login iframe still visible, closing and retrying login...');
-    await page.locator('iframe[name="dscert"]').evaluate((frame) => {
-      frame.remove();
-    });
-    await login(page);
-  }
+  await loginWithRetry(page);
 
   console.log('Login successful, navigating to copy invoice page...');
   await page.getByRole('link', { name: '계산서·영수증·카드' }).click();
   await page.getByRole('link', { name: '전자(세금)계산서 건별발급' }).click();
 
   await page.waitForLoadState('load');
-  await page.waitForTimeout(2000); // Wait for 1 second to ensure the page is fully loaded
+  await page.waitForTimeout(2000);
 
   console.log(`Filling out recipient form for ${recipient.name} (${bizNo})...`);
   await page.getByRole('textbox', { name: '등록번호' }).fill(bizNo);
   await page.getByRole('button', { name: '확인' }).click();
   await page.waitForTimeout(500);
 
-  //await page.getByTitle('상호입력').fill('주식회사 드론맵');
   await page.locator('#mf_txppWframe_edtDmnrTnmNmTop').fill(recipient.name);
-  //await page.getByTitle('성명 입력').fill('박동희');
   await page.locator('#mf_txppWframe_edtDmnrRprsFnmTop').fill(recipient.ceo);
   await page.getByTitle('사업장주소입력').fill(recipient.address);
   await page.getByTitle('업태입력', { exact: true }).fill(recipient.businessType);
-  //await page.getByTitle('종목 입력').fill('소프트웨어 및 하드웨어');
   await page.locator('#mf_txppWframe_edtDmnrItmNmTop').fill(recipient.businessItem);
 
   const [email1Id, email1Domain] = recipient.email1.split('@');
@@ -257,16 +193,6 @@ async function main() {
   }
 
   await page.getByRole('button', { name: '발급미리보기' }).click();
-  //await page.getByRole('button', { name: '취소' }).click();
 
   await context.storageState({ path: authFile });
-
-  // do not occour timeout event, wait for eternally
-  //await page.waitForTimeout(999999999);
-  //await page.pause();
-  //await page.getByRole('link', { name: '로그아웃' }).click();
-  //await page.getByRole('button', { name: '확인' }).click();
-
-  // Cleanup
-  //await browser.close();
 }

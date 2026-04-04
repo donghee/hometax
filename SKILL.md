@@ -1,6 +1,6 @@
 ---
 name: hometax
-description: hometax.go.kr에서 제공하는 세금계산서 조회 및 작성하는 도구 
+description: hometax.go.kr에서 제공하는 홈텍스 세금계산서 조회 및 작성하는 도구 
 allowed-tools: Bash
 ---
 
@@ -17,6 +17,13 @@ cd /home/donghee/src/github.com/donghee/hometax
 ```
 
 ### Step 2: 도구 사용 예시
+
+#### hometax 로그인
+
+```bash
+# hometax 로그인, chrome headed 모드로 실행
+npx tsx hometax_login.ts
+```
 
 #### 세금계산서 조회
 
