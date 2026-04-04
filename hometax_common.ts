@@ -39,13 +39,18 @@ export const login = async (page: Page) => {
   await logoutLink.waitFor({ state: 'visible' });
 };
 
-export const loginWithRetry = async (page: Page) => {
+export const loginWithRetry = async (page: Page, maxRetries = 3) => {
   await login(page);
+  let attempts = 0;
   while (
     await page.locator('iframe[name="dscert"]').isVisible() &&
     !await page.getByRole('link', { name: '로그아웃', exact: true }).isVisible()
   ) {
-    console.log('Login iframe still visible, closing and retrying login...');
+    if (attempts >= maxRetries) {
+      throw new Error(`로그인 실패: ${maxRetries}회 재시도 후에도 로그인되지 않았습니다.`);
+    }
+    attempts++;
+    console.log(`Login iframe still visible, closing and retrying login... (${attempts}/${maxRetries})`);
     await page.locator('iframe[name="dscert"]').evaluate((frame) => {
       frame.remove();
     });
