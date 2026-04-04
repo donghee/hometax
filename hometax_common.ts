@@ -27,16 +27,31 @@ export const login = async (page: Page) => {
     return;
   }
 
+  if (!certName || !certPassword) {
+    throw new Error('환경변수 CERT_NAME 또는 CERT_PASSWORD가 설정되지 않았습니다.');
+  }
+
   await page.getByRole('link', { name: '로그인', exact: true }).click();
   await page.getByRole('button', { name: '공동·금융인증서' }).click();
 
-  await page.locator('iframe[name="dscert"]').contentFrame().getByRole('link', { name: '브라우저' }).click();
-  await page.locator('iframe[name="dscert"]').contentFrame().locator('a').filter({ hasText: certName }).click();
-  await page.locator('iframe[name="dscert"]').contentFrame().getByRole('textbox', { name: '비밀번호 입력' }).fill(certPassword);
-  await page.locator('iframe[name="dscert"]').contentFrame().getByRole('textbox', { name: '비밀번호 입력' }).press('Enter');
+  const certFrame = page.locator('iframe[name="dscert"]').contentFrame();
 
-  const logoutLink = page.getByRole('link', { name: '로그아웃', exact: true });
-  await logoutLink.waitFor({ state: 'visible' });
+  await certFrame.getByRole('link', { name: '브라우저' }).click();
+
+  const certLink = certFrame.locator('a').filter({ hasText: certName });
+  if (!await certLink.isVisible()) {
+    throw new Error(`인증서를 찾을 수 없습니다: "${certName}"`);
+  }
+  await certLink.click();
+  await certFrame.getByRole('textbox', { name: '비밀번호 입력' }).fill(certPassword);
+  await certFrame.getByRole('textbox', { name: '비밀번호 입력' }).press('Enter');
+
+  try {
+    const logoutLink = page.getByRole('link', { name: '로그아웃', exact: true });
+    await logoutLink.waitFor({ state: 'visible', timeout: 15000 });
+  } catch {
+    throw new Error('로그인 실패: 비밀번호가 틀렸거나 인증서 오류가 발생했습니다.');
+  }
 };
 
 export const loginWithRetry = async (page: Page, maxRetries = 3) => {
