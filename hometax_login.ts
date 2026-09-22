@@ -1,8 +1,12 @@
-import { launchContext, loginWithRetry, getBusinessName, authFile } from './hometax_common.ts';
+import { launchContext, loginWithRetry, getBusinessName, logout, authFile } from './hometax_common.ts';
 
 (async () => {
   const context = await launchContext({ headless: false, timeout: 60000 * 60 });
   const page = await context.newPage();
+  if (await page.getByRole('link', { name: '로그아웃', exact: true }).isVisible()) {
+    console.log('Logging out of current session...');
+    await logout(page);
+  }
   console.log('Browser launched, trying to log in...');
   await loginWithRetry(page);
   await getBusinessName(page);

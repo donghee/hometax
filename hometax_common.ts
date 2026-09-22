@@ -2,6 +2,10 @@ import { chromium, type Page, type BrowserContext } from 'playwright';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from 'dotenv';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 config({ path: path.join(__dirname, '.env') });
@@ -10,7 +14,16 @@ export const authFile = path.join(__dirname, 'user.json');
 export const userDataDir = path.join(__dirname, 'google-chrome');
 
 export const certName = process.env.CERT_NAME!;
-export const certPassword = process.env.CERT_PASSWORD!;
+const certPassword_ = process.env.CERT_PASSWORD!;
+const certPassEntry = process.env.CERT_PASS_ENTRY!;
+
+// CERT_PASSWORD가 .env에 직접 있으면 그것을 쓰고, 없으면 `pass`(GPG 기반 패스워드
+// 스토어)의 CERT_PASS_ENTRY 항목에서 실행 시점에 조회한다.
+const getCertPassword = async (): Promise<string> => {
+  if (certPassword_) return certPassword_;
+  const { stdout } = await execFileAsync('pass', ['show', certPassEntry]);
+  return stdout.split('\n')[0].trim();
+};
 
 export const logout = async (page: Page) => {
   await page.getByRole('link', { name: '로그아웃', exact: true }).click();
@@ -27,9 +40,10 @@ export const login = async (page: Page) => {
     return;
   }
 
-  if (!certName || !certPassword) {
-    throw new Error('환경변수 CERT_NAME 또는 CERT_PASSWORD가 설정되지 않았습니다.');
+  if (!certName || (!certPassword_ && !certPassEntry)) {
+    throw new Error('환경변수 CERT_NAME과, CERT_PASSWORD 또는 CERT_PASS_ENTRY 중 하나가 설정되어야 합니다.');
   }
+  const certPassword = await getCertPassword();
 
   await page.getByRole('link', { name: '로그인', exact: true }).click();
   await page.getByRole('button', { name: '공동·금융인증서' }).click();

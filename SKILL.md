@@ -25,6 +25,8 @@ cd /home/donghee/src/github.com/donghee/hometax
 npx tsx hometax_login.ts
 ```
 
+주의사항: 로그인 후 출력되는 `로그인된 사업자`가 의도한 사업자와 다르면 즉시 중단하고 사용자에게 알릴 것.
+
 #### 사업자 전환 (여러 사업자 사용 시)
 
 `.env` 파일에 사업자별 `CERT_NAME`/`CERT_PASSWORD` 블록을 모두 적어두고, 쓸 블록만 주석 해제(나머지는 `#` 처리)해서 전환한다.
@@ -52,6 +54,9 @@ npx tsx hometax_invoice_list.ts purchase
 # 발행된 복사 세금계산서 조회
 npx tsx hometax_copy_invoice_list.ts
 ```
+
+
+주의사항: 세금계산서 조회 하기 전에 'hometax 로그인' 실행해서 출력되는 `로그인된 사업자`가 의도한 사업자와 다르면 즉시 중단하고 사용자에게 알릴 것.
 
 #### 세금계산서 PDF 다운로드
 
