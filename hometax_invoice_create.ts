@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as readline from 'readline';
 import { program } from 'commander';
 import type { Page } from 'playwright';
-import { launchContext, loginWithRetry, authFile } from './hometax_common.ts';
+import { launchContext, loginWithRetry, getBusinessName, authFile } from './hometax_common.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -123,6 +123,7 @@ async function main() {
   const page = await context.newPage();
   console.log('Browser launched, trying to log in...');
   await loginWithRetry(page);
+  await getBusinessName(page);
 
   console.log('Login successful, navigating to copy invoice page...');
   await page.getByRole('link', { name: '계산서·영수증·카드' }).click();

@@ -1,5 +1,5 @@
 import type { Page } from 'playwright';
-import { launchContext, loginWithRetry, extractTableRows, printInvoices, authFile } from './hometax_common.ts';
+import { launchContext, loginWithRetry, extractTableRows, printInvoices, getBusinessName, authFile } from './hometax_common.ts';
 
 const navigateToInvoicePage = async (page: Page) => {
   console.log('Login successful, navigating to invoice page...');
@@ -43,6 +43,7 @@ const getPurchaseInvoices = async (page: Page): Promise<Record<string, string>[]
   const page = await context.newPage();
   console.log('Browser launched, trying to log in...');
   await loginWithRetry(page);
+  await getBusinessName(page);
 
   await navigateToInvoicePage(page);
 

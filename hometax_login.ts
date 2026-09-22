@@ -1,10 +1,11 @@
-import { launchContext, loginWithRetry, authFile } from './hometax_common.ts';
+import { launchContext, loginWithRetry, getBusinessName, authFile } from './hometax_common.ts';
 
 (async () => {
   const context = await launchContext({ headless: false, timeout: 60000 * 60 });
   const page = await context.newPage();
   console.log('Browser launched, trying to log in...');
   await loginWithRetry(page);
+  await getBusinessName(page);
 
   console.log('Login successful, navigating to copy invoice page...');
   await page.getByRole('link', { name: '계산서·영수증·카드' }).click();

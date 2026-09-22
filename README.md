@@ -45,6 +45,19 @@ npx tsx hometax_invoice_list.ts purchase
 npx tsx hometax_copy_invoice_list.ts
 ```
 
+### 세금계산서 PDF 다운로드
+
+```sh
+# 승인번호로 찾아서 저장
+npx tsx hometax_invoice_pdf.ts 20260922-10260922-75984916 더피치_세금계산서.pdf
+
+# 상호명/사업자번호로 찾아서 저장 (매출 목록, 최근 3개월 범위)
+npx tsx hometax_invoice_pdf.ts "주식회사 더피치" ./더피치_세금계산서.pdf
+
+# 매입 세금계산서에서 찾기
+npx tsx hometax_invoice_pdf.ts 20260922-10260922-75984916 매입건.pdf --type purchase
+```
+
 ### 세금계산서 발행
 
 ```sh

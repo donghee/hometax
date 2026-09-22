@@ -73,6 +73,19 @@ export const loginWithRetry = async (page: Page, maxRetries = 3) => {
   }
 };
 
+export const getBusinessName = async (page: Page): Promise<string> => {
+  const userName = page.locator('.user_name').first();
+  await userName.waitFor({ state: 'attached' });
+  await page.waitForFunction(
+    (el) => (el as HTMLElement).innerText.trim().length > 0,
+    await userName.elementHandle(),
+    { timeout: 15000 }
+  );
+  const name = (await userName.innerText()).trim();
+  console.log(`로그인된 사업자: ${name}`);
+  return name;
+};
+
 export const launchContext = async (options: { headless?: boolean; timeout?: number } = {}): Promise<BrowserContext> => {
   const { headless = false, timeout = 60000 } = options;
   const context = await chromium.launchPersistentContext(userDataDir, {
