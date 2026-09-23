@@ -1,7 +1,7 @@
 import { launchContext, loginWithRetry, extractTableRows, printInvoices, getBusinessName, authFile } from './hometax_common.ts';
 
 (async () => {
-  const context = await launchContext({ headless: true, timeout: 60000 });
+  const context = await launchContext();
   const page = await context.newPage();
   console.log('Browser launched, trying to log in...');
   await loginWithRetry(page);

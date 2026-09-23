@@ -1,8 +1,12 @@
 import { launchContext, loginWithRetry, getBusinessName, logout, authFile } from './hometax_common.ts';
 
+// 브라우저 프로필에 남은 세션이 있으면 로그아웃 후 .env의 인증서로 다시 로그인한다.
+// (.env에서 사업자를 전환한 뒤 이전 사업자 세션이 그대로 쓰이는 것을 막는다.)
 (async () => {
-  const context = await launchContext({ headless: true, timeout: 60000 * 60 });
+  const context = await launchContext();
   const page = await context.newPage();
+  await page.goto('https://hometax.go.kr');
+  await page.waitForLoadState('networkidle');
   if (await page.getByRole('link', { name: '로그아웃', exact: true }).isVisible()) {
     console.log('Logging out of current session...');
     await logout(page);
@@ -10,13 +14,6 @@ import { launchContext, loginWithRetry, getBusinessName, logout, authFile } from
   console.log('Browser launched, trying to log in...');
   await loginWithRetry(page);
   await getBusinessName(page);
-
-  // console.log('Login successful, navigating to copy invoice page...');
-  // await page.getByRole('link', { name: '계산서·영수증·카드' }).click();
-  // await page.getByRole('link', { name: '반복/복사 발급' }).click();
-  // await page.getByRole('link', { name: '전자(세금)계산서 복사발급' }).click();
-  // await page.getByRole('button', { name: '2개월' }).click();
-  // await page.getByRole('button', { name: '조회' }).click();
 
   await context.storageState({ path: authFile });
   await context.close();

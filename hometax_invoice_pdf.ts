@@ -1,50 +1,34 @@
-import { launchContext, loginWithRetry, getBusinessName, authFile } from './hometax_common.ts';
+import { program, Option } from 'commander';
+import { launchContext, loginWithRetry, getBusinessName, openInvoiceList, queryInvoices, authFile } from './hometax_common.ts';
 
-const printUsage = () => {
-  console.log(`
-사용법: npx tsx hometax_invoice_pdf.ts <검색어> [출력경로] [--type sales|purchase]
-
-<검색어>: 승인번호, 사업자등록번호, 상호명 중 목록에서 해당 행을 특정할 수 있는 문자열
-[출력경로]: 저장할 PDF 파일 경로 (생략 시 ./<검색어>.pdf)
-[--type sales|purchase]: 매출/매입 목록 중 어디서 찾을지 (기본값: sales)
-
+program
+  .name('hometax_invoice_pdf')
+  .description('발급 목록에서 세금계산서를 찾아 PDF로 저장한다.')
+  .argument('<검색어>', '승인번호, 사업자등록번호, 상호명 중 목록에서 해당 행을 특정할 수 있는 문자열')
+  .argument('[출력경로]', '저장할 PDF 파일 경로 (생략 시 ./<검색어>.pdf)')
+  .addOption(new Option('--type <type>', '매출/매입 목록 중 어디서 찾을지').choices(['sales', 'purchase']).default('sales'))
+  .addHelpText('after', `
 예시:
   npx tsx hometax_invoice_pdf.ts 20260922-10260922-75984916 더피치_세금계산서.pdf
   npx tsx hometax_invoice_pdf.ts "주식회사 더피치" ./더피치_세금계산서.pdf
-`);
-};
+  npx tsx hometax_invoice_pdf.ts 20260922-10260922-75984916 --type purchase
+`)
+  .parse();
+
+const [keyword, outArg] = program.args;
+const outPath = outArg ?? `./${keyword}.pdf`;
+const type: 'sales' | 'purchase' = program.opts().type;
 
 (async () => {
-  const args = process.argv.slice(2).filter((a) => a !== '--type');
-  const typeIdx = process.argv.indexOf('--type');
-  const type = typeIdx >= 0 ? process.argv[typeIdx + 1] : 'sales';
-
-  const keyword = args[0];
-  const outPath = args[1] ?? `./${keyword}.pdf`;
-
-  if (!keyword) {
-    printUsage();
-    process.exit(1);
-  }
-
-  const context = await launchContext({ headless: false, timeout: 60000 });
+  const context = await launchContext();
   const page = await context.newPage();
   console.log('Browser launched, trying to log in...');
   await loginWithRetry(page);
   await getBusinessName(page);
 
   console.log('Navigating to invoice list...');
-  const invoiceLink = page.getByRole('link', { name: '계산서·영수증·카드' });
-  await invoiceLink.waitFor({ state: 'visible' });
-  await invoiceLink.click();
-  await page.getByRole('link', { name: '전자(세금)계산서 조회' }).click();
-  await page.getByRole('link', { name: '조회', exact: true }).click();
-  await page.getByRole('link', { name: '발급 목록조회' }).click();
-
-  await page.getByText(type === 'purchase' ? '매입' : '매출', { exact: true }).click();
-  await page.getByRole('button', { name: '3개월' }).click();
-  await page.getByRole('button', { name: '조회', exact: true }).click();
-  await page.waitForTimeout(2000);
+  await openInvoiceList(page);
+  await queryInvoices(page, type === 'purchase' ? '매입' : '매출');
 
   console.log(`"${keyword}"에 해당하는 세금계산서를 찾는 중...`);
   const row = page.locator('tr', { hasText: keyword }).first();
