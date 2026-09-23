@@ -77,7 +77,22 @@ npx tsx hometax_invoice_create.ts 1498100925 "용역비:1:500000" --date 25
 npx tsx hometax_invoice_create.ts 1498100925 "용역비:1:500000" --yes
 ```
 
-발행 전에 내용 확인 후 `y`를 입력해야 실제로 발급됩니다.
+발행 전에 내용 확인 후 `y`를 입력해야 실제로 발급됩니다. `hometax_invoice_create.ts`는 '발급미리보기'
+단계까지만 자동화하고, 실제 최종 발급(제출)은 열린 브라우저에서 직접 진행합니다.
+
+### 세금계산서 발행 + 최종 제출 (자동 서명)
+
+```sh
+# 발급미리보기 이후 '발급하기' 버튼 클릭과 공동·금융인증서 전자서명까지 자동 진행
+npx tsx hometax_invoice_create_submit.ts 1078641704 "8월 유지보수지급액:1:250000"
+
+# 모든 확인 없이 바로 최종 발급까지 진행
+npx tsx hometax_invoice_create_submit.ts 1078641704 "8월 유지보수지급액:1:250000" --yes
+```
+
+`hometax_invoice_create_submit.ts`는 실제로 상대방에게 전송되는 세금계산서를 발급하며, 되돌릴 수
+없습니다. `--yes` 없이 실행하면 (1) 발급 내용 확인, (2) 발급미리보기 확인 후 인증서 서명 여부, 두
+번의 확인을 거칩니다.
 
 #### items.json 형식
 

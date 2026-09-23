@@ -31,22 +31,13 @@ export const logout = async (page: Page) => {
   console.log('Logged out successfully');
 };
 
-export const login = async (page: Page) => {
-  await page.goto('https://hometax.go.kr');
-  await page.waitForLoadState('networkidle');
-
-  if (await page.getByRole('link', { name: '로그아웃', exact: true }).isVisible()) {
-    console.log('Already logged in, skipping login process');
-    return;
-  }
-
+// dscert 인증서 팝업(iframe)에서 인증서를 선택하고 비밀번호를 입력해 서명한다.
+// 로그인 시의 "공동·금융인증서" 팝업과 세금계산서 발급 시의 전자서명 팝업이 동일한 컴포넌트를 사용한다.
+export const signWithCertificate = async (page: Page) => {
   if (!certName || (!certPassword_ && !certPassEntry)) {
     throw new Error('환경변수 CERT_NAME과, CERT_PASSWORD 또는 CERT_PASS_ENTRY 중 하나가 설정되어야 합니다.');
   }
   const certPassword = await getCertPassword();
-
-  await page.getByRole('link', { name: '로그인', exact: true }).click();
-  await page.getByRole('button', { name: '공동·금융인증서' }).click();
 
   const certFrame = page.locator('iframe[name="dscert"]').contentFrame();
 
@@ -59,6 +50,20 @@ export const login = async (page: Page) => {
   await certLink.click();
   await certFrame.getByRole('textbox', { name: '비밀번호 입력' }).fill(certPassword);
   await certFrame.getByRole('textbox', { name: '비밀번호 입력' }).press('Enter');
+};
+
+export const login = async (page: Page) => {
+  await page.goto('https://hometax.go.kr');
+  await page.waitForLoadState('networkidle');
+
+  if (await page.getByRole('link', { name: '로그아웃', exact: true }).isVisible()) {
+    console.log('Already logged in, skipping login process');
+    return;
+  }
+
+  await page.getByRole('link', { name: '로그인', exact: true }).click();
+  await page.getByRole('button', { name: '공동·금융인증서' }).click();
+  await signWithCertificate(page);
 
   try {
     const logoutLink = page.getByRole('link', { name: '로그아웃', exact: true });
