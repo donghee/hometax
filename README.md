@@ -109,9 +109,8 @@ npx tsx hometax_invoice_create_preview.ts 1498100925 "F450 드론:1:5000" "배�
 # 품목이 많을 때: JSON 파일로 입력
 npx tsx hometax_invoice_create_preview.ts 1498100925 --file items.json
 
-# 작성일자 지정: 전체 날짜(전월분 등) 또는 이번 달의 일 (기본값: 오늘)
+# 작성일자 지정: YYYY-MM-DD (기본값: 오늘)
 npx tsx hometax_invoice_create_preview.ts 1078641704 "8월 유지보수지급액:1:250000" --date 2026-08-31
-npx tsx hometax_invoice_create_preview.ts 1498100925 "용역비:1:500000" --date 25
 
 # 확인 프롬프트 생략
 npx tsx hometax_invoice_create_preview.ts 1498100925 "용역비:1:500000" --yes

@@ -43,6 +43,7 @@ export const parseInvoiceCli = (cli: { name: string; description: string; yesDes
   const lastMonth = now.getMonth().toString();
   const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
   const prevMonthEndStr = `${prevMonthEnd.getFullYear()}-${String(prevMonthEnd.getMonth() + 1).padStart(2, '0')}-${prevMonthEnd.getDate()}`;
+  const thisMonth15Str = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-15`;
   const script = `${cli.name}.ts`;
 
   program
@@ -51,13 +52,13 @@ export const parseInvoiceCli = (cli: { name: string; description: string; yesDes
     .argument('[bizNo]', '수신자 사업자번호', '1498100925')
     .argument('[items...]', '품목 목록 (형식: 품목명:수량:단가)')
     .option('-f, --file <path>', '품목 JSON 파일 경로 ([{"name":"...", "qty":1, "price":5000}])')
-    .option('-d, --date <date>', '작성일자. YYYY-MM-DD 또는 이번 달의 일(1~31) (기본값: 오늘)')
+    .option('-d, --date <YYYY-MM-DD>', '작성일자 (기본값: 오늘)')
     .option('-y, --yes', cli.yesDescription)
     .addHelpText('after', `
 예시:
   $ npx tsx ${script} 1498100925 "F450 드론:1:5000" "배터리:2:2000"
   $ npx tsx ${script} 1078641704 "${lastMonth}월 유지보수지급액:1:250000" --date ${prevMonthEndStr}
-  $ npx tsx ${script} 2108701441 "용역비:1:500000" --date 15
+  $ npx tsx ${script} 2108701441 "용역비:1:500000" --date ${thisMonth15Str}
   $ npx tsx ${script} 8788102093 "PCB 자문회의 (${lastMonth}월분):11.5:150000"
   $ npx tsx ${script} 1498100925 --file items.json
 
@@ -110,20 +111,15 @@ ${cli.notice ? `\n${cli.notice}\n` : ''}`)
   };
 };
 
-// "YYYY-MM-DD" 또는 이번 달의 일("15")을 받아 실제로 존재하는 날짜인지 확인한다.
+// "YYYY-MM-DD"를 받아 실제로 존재하는 날짜인지 확인한다.
 const parseIssueDate = (value: string | undefined, now: Date): Date => {
   if (!value) return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const full = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(value);
-  const dayOnly = /^\d{1,2}$/.exec(value);
-  let y: number, m: number, d: number;
-  if (full) {
-    [y, m, d] = [Number(full[1]), Number(full[2]), Number(full[3])];
-  } else if (dayOnly) {
-    [y, m, d] = [now.getFullYear(), now.getMonth() + 1, Number(value)];
-  } else {
-    console.error(`오류: 작성일자 형식이 잘못되었습니다 "${value}" (YYYY-MM-DD 또는 일)`);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    console.error(`오류: 작성일자 형식이 잘못되었습니다 "${value}" (YYYY-MM-DD)`);
     process.exit(1);
   }
+  const [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])];
   const date = new Date(y, m - 1, d);
   if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) {
     console.error(`오류: 존재하지 않는 날짜입니다 "${value}"`);
