@@ -194,7 +194,18 @@ export const fillInvoiceForm = async (page: Page, inv: Invoice) => {
   console.log(`Filling out recipient form for ${recipient.name} (${bizNo})...`);
   await page.getByRole('textbox', { name: '등록번호' }).fill(bizNo);
   await page.getByRole('button', { name: '확인' }).click();
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(1000);
+
+  // 종사업장이 여러 개인 사업자는 '종사업장 선택' 팝업이 뜬다. 본점(일련번호 0000)을 선택한다.
+  const branchPopup = page.locator('.w2popup_window:visible', { hasText: '종사업장 선택' });
+  if (await branchPopup.isVisible().catch(() => false)) {
+    console.log('종사업장 선택 팝업: 본점(0000) 선택');
+    await branchPopup.locator('tr', { hasText: '0000 ' }).first().locator('label.w2radio_label').first().click();
+    await page.waitForTimeout(500);
+    const confirmBtn = branchPopup.getByRole('button', { name: /^(확인|선택)$/ }).first();
+    if (await confirmBtn.isVisible().catch(() => false)) await confirmBtn.click();
+    await page.waitForTimeout(1000);
+  }
 
   await byIdSuffix(page, 'edtDmnrTnmNmTop').fill(recipient.name);
   await byIdSuffix(page, 'edtDmnrRprsFnmTop').fill(recipient.ceo);

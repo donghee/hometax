@@ -15,7 +15,8 @@ if (!await confirm('위 내용으로 발급미리보기를 진행하시겠습니
   process.exit(0);
 }
 
-const context = await launchContext();
+// 눈으로 확인할 수 있도록 headed 로 실행한다.
+const context = await launchContext({ headless: false });
 const page = await context.newPage();
 console.log('Browser launched, trying to log in...');
 await loginWithRetry(page);
@@ -28,4 +29,8 @@ console.log(`발급미리보기까지 완료했습니다. 미리보기 화면: $
 console.log('실제 발급은 hometax_invoice_create_submit.ts 로 진행하세요.');
 
 await context.storageState({ path: authFile });
-await context.close();
+console.log('브라우저 창에서 미리보기를 확인하세요. 확인 후 창을 닫으면 종료됩니다. (발급하지 않고 닫으면 아무것도 제출되지 않습니다)');
+await new Promise<void>((resolve) => {
+  context.on('close', () => resolve());
+  context.browser()?.on('disconnected', () => resolve());
+});
