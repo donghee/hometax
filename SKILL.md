@@ -27,7 +27,7 @@ npx tsx hometax_login.ts
 
 주의사항: 로그인 후 출력되는 `로그인된 사업자`가 의도한 사업자와 다르면 즉시 중단하고 사용자에게 알릴 것.
 
-모든 스크립트는 headless로 실행되고 끝나면 브라우저를 닫는다. 발행 스크립트는 실행에 1~3분 걸리므로 Bash 타임아웃을 넉넉히(180초 이상) 줄 것.
+모든 스크립트는 기본적으로 headless로 실행되고 끝나면 브라우저를 닫는다. 화면을 보며 디버깅하려면 환경변수 `HOMETAX_HEADED=1`을 붙인다(예: `HOMETAX_HEADED=1 npx tsx hometax_invoice_list.ts sales`). 단 `hometax_invoice_create_preview.ts`는 기본이 headed다. 발행 스크립트는 실행에 1~3분 걸리므로 Bash 타임아웃을 넉넉히(180초 이상) 줄 것.
 이전 실행을 강제 중단해 `ProcessSingleton`(프로필 잠금) 오류가 나면, 남은 chrome 프로세스를 종료하고 `google-chrome/Singleton*` 파일을 지운 뒤 다시 실행한다.
 
 #### 사업자 전환 (여러 사업자 사용 시)
@@ -78,7 +78,7 @@ npx tsx hometax_copy_invoice_list.ts
 
 #### 사업용 신용카드 매입 내역 조회
 
-홈택스 > 계산서·영수증·카드 > 신용카드 매입 > 사업용 신용카드 사용내역 > 매입세액 공제 확인/변경 화면의 월별 조회를 사용한다. headless로 실행되며(화면을 보려면 `CARD_HEADED=1`), 페이지(20건)를 모두 순회한다.
+홈택스 > 계산서·영수증·카드 > 신용카드 매입 > 사업용 신용카드 사용내역 > 매입세액 공제 확인/변경 화면의 월별 조회를 사용한다. 페이지(20건)를 모두 순회한다.
 
 ```bash
 # 이번 달

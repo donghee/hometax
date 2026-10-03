@@ -17,8 +17,7 @@ import { launchContext, loginWithRetry, getBusinessName, openCardPurchaseList, q
     process.exit(1);
   }
 
-  // 기본은 headless. 화면을 보며 디버깅하려면 CARD_HEADED=1.
-  const context = await launchContext({ headless: process.env.CARD_HEADED !== '1' });
+  const context = await launchContext();
   try {
     const page = await context.newPage();
     console.log('Browser launched, trying to log in...');

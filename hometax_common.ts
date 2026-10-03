@@ -224,7 +224,8 @@ export const findIssuedInvoices = async (
 };
 
 export const launchContext = async (options: { headless?: boolean; timeout?: number } = {}): Promise<BrowserContext> => {
-  const { headless = true, timeout = 60000 } = options;
+  // 기본은 headless. 화면을 보며 디버깅하려면 HOMETAX_HEADED=1 (headless를 명시한 호출은 그 값이 우선).
+  const { headless = process.env.HOMETAX_HEADED !== '1', timeout = 60000 } = options;
   // storageState는 launchPersistentContext 타입 정의에는 없지만 런타임에서는 적용된다.
   // 홈택스 세션 쿠키는 브라우저 프로필에 남지 않으므로, user.json으로 재시작 후에도 로그인을 유지한다.
   const launchOptions = {

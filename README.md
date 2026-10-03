@@ -41,7 +41,8 @@ BUSINESS_NAME=사업자명
 
 ## 실행 방법
 
-모든 스크립트는 headless 브라우저로 실행되며(화면 없음), 작업이 끝나면 브라우저를 닫습니다.
+모든 스크립트는 기본적으로 headless 브라우저로 실행되며(화면 없음), 작업이 끝나면 브라우저를 닫습니다.
+화면을 보며 디버깅하려면 `HOMETAX_HEADED=1`을 붙여 실행하세요(예: `HOMETAX_HEADED=1 npx tsx hometax_invoice_list.ts sales`). 단 `hometax_invoice_create_preview.ts`는 기본이 headed입니다.
 로그인 세션은 `google-chrome/` 프로필과 `user.json`에 저장되어 다음 실행에서 재사용됩니다.
 
 ### 로그인
