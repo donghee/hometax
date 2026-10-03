@@ -76,6 +76,22 @@ npx tsx hometax_invoice_list.ts purchase
 npx tsx hometax_copy_invoice_list.ts
 ```
 
+#### 사업용 신용카드 매입 내역 조회
+
+홈택스 > 계산서·영수증·카드 > 신용카드 매입 > 사업용 신용카드 사용내역 > 매입세액 공제 확인/변경 화면의 월별 조회를 사용한다. headed 브라우저로 실행되며(`CARD_HEADLESS=1`이면 headless), 페이지(20건)를 모두 순회한다.
+
+```bash
+# 이번 달
+npx tsx hometax_card_purchase_list.ts
+# 특정 월 (YYYY-MM)
+npx tsx hometax_card_purchase_list.ts 2026-08
+# 기간 (시작월 종료월)
+npx tsx hometax_card_purchase_list.ts 2026-07 2026-09
+```
+
+출력 항목: 승인일자, 카드사, 카드번호, 가맹점명, 공급가액, 세액, 합계, 공제여부결정(공제/불공제) 등. `조회월`은 홈택스 월별 조회의 기준월(매입일자 기준)이며 승인일자와 다를 수 있다.
+
+
 
 주의사항: 세금계산서 조회 하기 전에 'hometax 로그인' 실행해서 출력되는 `로그인된 사업자`가 의도한 사업자와 다르면 즉시 중단하고 사용자에게 알릴 것.
 

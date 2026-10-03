@@ -29,6 +29,8 @@ const getCertPassword = async (): Promise<string> => {
 export const logout = async (page: Page) => {
   await page.getByRole('link', { name: '로그아웃', exact: true }).click();
   await page.getByRole('button', { name: '확인', exact: true }).click();
+  // 로그아웃이 실제로 반영되기 전에 login()이 '이미 로그인됨'으로 오판하지 않도록 로그인 링크를 기다린다.
+  await page.getByRole('link', { name: '로그인', exact: true }).waitFor({ state: 'visible' });
   console.log('Logged out successfully');
 };
 
@@ -151,13 +153,62 @@ export const openInvoiceList = async (page: Page) => {
   await page.getByRole('link', { name: '발급 목록조회' }).click();
 };
 
-// '발급 목록조회' 화면에서 매출/매입 목록(최근 3개월)을 조회한다. openInvoiceList 이후 호출.
-export const queryInvoices = async (page: Page, type: '매출' | '매입'): Promise<Record<string, string>[]> => {
+// 홈택스는 한 번에 3개월 이내만 조회할 수 있어, 긴 기간은 3개월 이하 구간으로 나눈다.
+const splitRange = (from: string, to: string): { from: string; to: string }[] => {
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const end = new Date(`${to}T00:00:00Z`);
+  const chunks: { from: string; to: string }[] = [];
+  let start = new Date(`${from}T00:00:00Z`);
+  while (start <= end) {
+    const limit = new Date(start);
+    limit.setUTCMonth(limit.getUTCMonth() + 3);
+    limit.setUTCDate(limit.getUTCDate() - 1);
+    const stop = limit < end ? limit : end;
+    chunks.push({ from: iso(start), to: iso(stop) });
+    start = new Date(stop);
+    start.setUTCDate(start.getUTCDate() + 1);
+  }
+  return chunks;
+};
+
+// '발급 목록조회' 화면에서 매출/매입 목록을 조회한다. openInvoiceList 이후 호출.
+// range(YYYY-MM-DD)를 주지 않으면 최근 3개월, 주면 해당 작성일자 기간을 조회한다(구간당 50건/페이지).
+export const queryInvoices = async (
+  page: Page,
+  type: '매출' | '매입',
+  range?: { from: string; to: string },
+): Promise<Record<string, string>[]> => {
   await page.getByText(type, { exact: true }).click();
-  await page.getByRole('button', { name: '3개월' }).click();
-  await page.getByRole('button', { name: '조회', exact: true }).click();
-  await page.waitForTimeout(2000);
-  return extractTableRows(page);
+  if (!range) {
+    await page.getByRole('button', { name: '3개월' }).click();
+    await page.getByRole('button', { name: '조회', exact: true }).click();
+    await page.waitForTimeout(2000);
+    return extractTableRows(page);
+  }
+  await page.getByTitle('조회건수 선택').selectOption('50');
+  const all: Record<string, string>[] = [];
+  for (const chunk of splitRange(range.from, range.to)) {
+    for (const [title, value] of [['조회 시작일 입력', chunk.from], ['조회 종료일 입력', chunk.to]]) {
+      const input = page.getByTitle(title);
+      await input.click();
+      await input.fill(value);
+      await input.press('Tab');
+    }
+    await page.getByRole('button', { name: '조회', exact: true }).click();
+    await page.waitForTimeout(2000);
+    const rows = await extractTableRows(page);
+    if (rows.length >= 50) console.warn(`경고: ${chunk.from}~${chunk.to} ${rows.length}건 — 다음 페이지가 있을 수 있습니다.`);
+    all.push(...rows);
+  }
+  // 구간 조회 시 같은 행이 반복 추출되는 경우가 있어 승인번호로 중복을 제거한다.
+  const seen = new Set<string>();
+  return all.filter(r => {
+    const key = r['승인번호'];
+    if (!key) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
 // 발급/취소 직후 목록을 다시 조회해 실제로 등록되었는지 확인한다. 팝업이 닫힌 것만으로는 성공을 보장할 수 없다.
@@ -278,6 +329,84 @@ export const printInvoices = (rows: Record<string, string>[], label: string) => 
     return;
   }
   console.log(`\n## ${label} 세금계산서 목록 (총 ${rows.length}건)\n`);
+  rows.forEach((row, idx) => {
+    console.log(`[${idx + 1}]`);
+    Object.entries(row).forEach(([key, value]) => {
+      if (key && value) console.log(`  ${key}: ${value}`);
+    });
+    console.log('');
+  });
+};
+
+// 계산서·영수증·카드 > 신용카드 매입 > 사업용 신용카드 사용내역 > 매입세액 공제 확인/변경
+export const openCardPurchaseList = async (page: Page) => {
+  const menu = page.getByRole('link', { name: '계산서·영수증·카드' });
+  await menu.waitFor({ state: 'visible' });
+  await menu.click();
+  await page.getByRole('link', { name: '신용카드 매입' }).first().click();
+  await page.getByRole('link', { name: '사업용 신용카드 사용내역' }).first().click();
+  await page.getByRole('link', { name: '매입세액 공제 확인/변경' }).first().click();
+  await page.locator('label[for$="rdoSearch_input_1"]').click(); // 월별 (라디오 input은 숨겨져 있어 label 클릭)
+  await page.getByTitle('년월 선택').waitFor({ state: 'visible' });
+};
+
+const nextMonth = (ym: string): string => {
+  const [y, m] = ym.split('-').map(Number);
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+};
+
+// 사용자에게 보여줄 컬럼. 표에는 숨겨진 내부 코드 컬럼(공제구분코드, 일련번호 등)과 '전체선택'(체크박스 열)도 있다.
+const cardColumns = ['승인일자', '카드사', '카드번호', '가맹점명', '가맹점사업자번호', '공급가액', '세액', '비과세', '합계', '가맹점유형', '업태', '업종', '공제여부결정', '매입분기', '매입일자', '비고'];
+
+// 월별 조회로 from~to(YYYY-MM) 각 달의 사업용 신용카드 사용내역을 조회한다(페이지당 20건, 전 페이지 순회). 각 행에 '조회월'을 붙인다.
+export const queryCardPurchases = async (page: Page, from: string, to: string): Promise<Record<string, string>[]> => {
+  const all: Record<string, string>[] = [];
+  const total = byIdSuffix(page, 'txtTotal');
+  for (let ym = from; ym <= to; ym = nextMonth(ym)) {
+    const [y, m] = ym.split('-').map(Number);
+    await page.getByTitle('년월 선택').selectOption({ label: `${y}년 ${String(m).padStart(2, '0')}월` });
+    await page.getByRole('button', { name: '조회', exact: true }).click();
+    await page.waitForTimeout(3000);
+    // 결과가 0건이어도 이전 조회의 행이 DOM에 남아 있으므로 '총 N건'으로 판단한다.
+    const count = Number((await total.first().innerText()).replace(/\D/g, '') || 0);
+    if (count === 0) continue;
+    const seen = new Set<string>();
+    const monthRows: Record<string, string>[] = [];
+    const pages = Math.ceil(count / 20);
+    for (let p = 1; p <= pages; p++) {
+      if (p > 1) {
+        const link = byIdSuffix(page, `pglNavi_page_${p}`);
+        // 페이지 번호는 10개 단위로 묶여 있어, 안 보이면 Next로 다음 묶음을 연다.
+        if (!await link.isVisible().catch(() => false)) {
+          await byIdSuffix(page, 'pglNavi_nextPage_btn').click();
+          await page.waitForTimeout(1500);
+        }
+        await link.click();
+        await page.waitForTimeout(2000);
+      }
+      for (const r of await extractTableRows(page)) {
+        const key = r['사업용신용카드거래내역일련번호'];
+        if (!r['승인일자'] || !key || seen.has(key)) continue;
+        seen.add(key);
+        monthRows.push(r);
+      }
+    }
+    if (monthRows.length !== count) console.warn(`경고: ${ym} 총 ${count}건 중 ${monthRows.length}건만 추출되었습니다.`);
+    for (const r of monthRows) {
+      const row: Record<string, string> = { 조회월: ym };
+      for (const c of cardColumns) row[c] = r[c];
+      all.push(row);
+    }
+  }
+  return all;
+};
+
+export const printCardPurchases = (rows: Record<string, string>[]) => {
+  if (rows.length === 0) {
+    console.log('조회된 사업용 신용카드 매입 내역이 없습니다.');
+    return;
+  }
+  console.log(`\n## 사업용 신용카드 매입 내역 (총 ${rows.length}건)\n`);
   rows.forEach((row, idx) => {
     console.log(`[${idx + 1}]`);
     Object.entries(row).forEach(([key, value]) => {
