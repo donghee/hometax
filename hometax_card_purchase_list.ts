@@ -17,8 +17,8 @@ import { launchContext, loginWithRetry, getBusinessName, openCardPurchaseList, q
     process.exit(1);
   }
 
-  // 홈택스 화면이 headed에서만 안정적으로 동작하는지 확인 중이라 headed로 실행한다. CARD_HEADLESS=1이면 headless.
-  const context = await launchContext({ headless: process.env.CARD_HEADLESS === '1' });
+  // 기본은 headless. 화면을 보며 디버깅하려면 CARD_HEADED=1.
+  const context = await launchContext({ headless: process.env.CARD_HEADED !== '1' });
   try {
     const page = await context.newPage();
     console.log('Browser launched, trying to log in...');
