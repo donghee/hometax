@@ -3,7 +3,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { config } from 'dotenv';
-import { execFile } from 'child_process';
+import { execFile, execFileSync } from 'child_process';
 import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
@@ -223,6 +223,17 @@ export const findIssuedInvoices = async (
   return rows.filter(match);
 };
 
+// headless Chrome은 User-Agent에 "HeadlessChrome"이 들어가 홈택스에서 차단되므로
+// 설치된 Chrome 버전으로 일반 Chrome User-Agent를 만든다.
+const chromeUserAgent = (): string => {
+  let major = '0';
+  try {
+    const out = execFileSync('/opt/google/chrome/chrome', ['--version'], { stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+    major = /(\d+)\./.exec(out)?.[1] ?? major;
+  } catch {}
+  return `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${major}.0.0.0 Safari/537.36`;
+};
+
 export const launchContext = async (options: { headless?: boolean; timeout?: number } = {}): Promise<BrowserContext> => {
   // 기본은 headless. 화면을 보며 디버깅하려면 HOMETAX_HEADED=1 (headless를 명시한 호출은 그 값이 우선).
   const { headless = process.env.HOMETAX_HEADED !== '1', timeout = 60000 } = options;
@@ -234,6 +245,10 @@ export const launchContext = async (options: { headless?: boolean; timeout?: num
     permissions: ['local-network-access'],
     storageState: authFile,
     viewport: { width: 1600, height: 1200 },
+    // 홈택스는 자동화된 브라우저(navigator.webdriver=true)를 감지하면 로그인 직후
+    // '이용에 불편을 드려 죄송합니다'(cmErrorPage)로 보낸다. 자동화 표시를 끈다.
+    ignoreDefaultArgs: ['--enable-automation'],
+    args: ['--disable-blink-features=AutomationControlled', ...(headless ? [`--user-agent=${chromeUserAgent()}`] : [])],
   };
   const context = await chromium.launchPersistentContext(userDataDir, launchOptions);
   await context.setDefaultTimeout(timeout);
