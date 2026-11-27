@@ -113,6 +113,8 @@ npx tsx hometax_invoice_pdf.ts <검색어> [출력경로] --type purchase
 
 작성일자는 `--date YYYY-MM-DD`로 지정한다(다른 형식은 거부됨). 생략하면 오늘. 사용자가 날짜를 말하면 반드시 `--date`에 반영하고, 미리보기 스크린샷에서 상단 작성일자가 맞는지 확인할 것.
 
+영수/청구는 `--receipt 청구|영수`로 지정한다(기본값 청구). 사용자가 영수/청구를 말하면 반드시 반영할 것.
+
 ```bash
 # 1) 미리보기 (기본 동작, 실제 발급/서명 없음)
 npx tsx hometax_invoice_create_preview.ts 1498100925 "F450 드론:1:5000" "배터리:2:2000" --date 2026-09-15 --yes

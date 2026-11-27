@@ -3,7 +3,7 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import * as readline from 'readline';
-import { program } from 'commander';
+import { program, Option } from 'commander';
 import type { Page } from 'playwright';
 import { byIdSuffix } from './hometax_common.ts';
 
@@ -32,6 +32,7 @@ export interface Invoice {
   issueMonth: string;
   issueDay: string;
   issueDateStr: string;
+  receipt: '청구' | '영수';
   autoYes: boolean;
 }
 
@@ -53,6 +54,7 @@ export const parseInvoiceCli = (cli: { name: string; description: string; yesDes
     .argument('[items...]', '품목 목록 (형식: 품목명:수량:단가)')
     .option('-f, --file <path>', '품목 JSON 파일 경로 ([{"name":"...", "qty":1, "price":5000}])')
     .option('-d, --date <YYYY-MM-DD>', '작성일자 (기본값: 오늘)')
+    .addOption(new Option('-r, --receipt <구분>', '이 금액을 청구/영수 함').choices(['청구', '영수']).default('청구'))
     .option('-y, --yes', cli.yesDescription)
     .addHelpText('after', `
 예시:
@@ -61,6 +63,7 @@ export const parseInvoiceCli = (cli: { name: string; description: string; yesDes
   $ npx tsx ${script} 2108701441 "용역비:1:500000" --date ${thisMonth15Str}
   $ npx tsx ${script} 8788102093 "PCB 자문회의 (${lastMonth}월분):11.5:150000"
   $ npx tsx ${script} 1498100925 --file items.json
+  $ npx tsx ${script} 1078641704 "용역비:1:500000" --receipt 영수
 
 등록된 수신자:
 ${Object.entries(recipients).map(([k, v]) => `  ${k}  ${v.name} (${v.ceo})`).join('\n')}
@@ -107,6 +110,7 @@ ${cli.notice ? `\n${cli.notice}\n` : ''}`)
     issueMonth: pad(issueDate.getMonth() + 1),
     issueDay: pad(issueDate.getDate()),
     issueDateStr,
+    receipt: opts.receipt,
     autoYes: opts.yes === true,
   };
 };
@@ -162,6 +166,7 @@ export const printInvoiceSummary = (inv: Invoice) => {
   console.log(`주  소: ${recipient.address}`);
   console.log(`이메일: ${recipient.email1}${recipient.email2 ? ', ' + recipient.email2 : ''}`);
   console.log(`\n작성일: ${inv.issueDateStr}`);
+  console.log(`구  분: 이 금액을 ${inv.receipt} 함`);
   console.log('\n품  목:');
   for (const item of items) {
     console.log(`  ${item.name}  수량: ${item.qty}  단가: ${item.price.toLocaleString()}원  금액: ${(item.qty * item.price).toLocaleString()}원`);
@@ -239,6 +244,13 @@ export const fillInvoiceForm = async (page: Page, inv: Invoice) => {
     await page.getByRole('textbox', { name: `${row}행 품목` }).fill(item.name);
     await page.getByRole('textbox', { name: `${row}행 수량` }).fill(String(item.qty));
     await page.getByRole('textbox', { name: `${row}행 단가` }).fill(String(item.price));
+  }
+
+  // 화면 하단 '이 금액을 (청구 / 영수) 함'. 기본값은 청구지만 명시적으로 선택하고 확인한다.
+  const receiptIdx = inv.receipt === '영수' ? 1 : 0;
+  await page.locator(`label[for$="rdoRecApeClCdTop_input_${receiptIdx}"]`).click();
+  if (!await page.locator(`[id$="rdoRecApeClCdTop_input_${receiptIdx}"]`).isChecked()) {
+    throw new Error(`'${inv.receipt}' 선택에 실패했습니다.`);
   }
 
   console.log('Opening 발급미리보기...');
